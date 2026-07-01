@@ -1,0 +1,34 @@
+services:
+  # ── Web Service for FastAPI Backend ─────────────────────────────────────────
+  - type: web
+    name: chronic-patient-memory-system-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: DATABASE_URL
+        value: sqlite:////var/data/chronic_patients.db
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      - key: CHROMA_DB_PATH
+        value: /var/data/chroma_db
+      - key: ALLOWED_ORIGINS
+        value: "https://your-app.vercel.app"
+      - key: GEMINI_API_KEY
+        sync: true # Requires manual setup in Render dashboard
+      - key: GEMINI_MODEL
+        value: gemini-1.5-flash
+    disk:
+      name: sqlite-data
+      mountPath: /var/data
+      sizeGB: 1

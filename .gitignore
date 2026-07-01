@@ -1,0 +1,59 @@
+# ── Python ─────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.Python
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+venv/
+env/
+.venv/
+.env/
+
+# ── Environment variables (NEVER commit these) ─────────────────────────────────
+.env
+backend/.env
+frontend/.env
+
+# ── Database files ─────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Uploads & vector store (local data) ───────────────────────────────────────
+backend/uploads/
+backend/chroma_db/
+demo_uploads/
+demo_chroma_db/
+demo_patients.db*
+
+# ── Logs ───────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Testing ────────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Node / Frontend ────────────────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ── IDEs ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Sentence Transformers cache ────────────────────────────────────────────────
+.cache/
