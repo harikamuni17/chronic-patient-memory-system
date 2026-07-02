@@ -18,7 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 
-from app.db.base import Base
+from app.db.base_class import Base
 
 
 class MessageRole(str, enum.Enum):

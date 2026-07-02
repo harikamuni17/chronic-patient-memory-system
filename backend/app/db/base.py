@@ -1,22 +1,16 @@
 """
 app/db/base.py
 ──────────────
-Declares the SQLAlchemy DeclarativeBase that every ORM model must inherit.
+This module serves as a central point to ensure all SQLAlchemy models are
+registered with the metadata before database initialization or migration.
 
 Import ALL models here (at the bottom) so that Alembic's autogenerate
 can discover them when creating migration scripts.
 """
 
-from sqlalchemy.orm import DeclarativeBase
-
-
-class Base(DeclarativeBase):
-    """Shared base for every ORM model in the project."""
-    pass
-
-
 # ── Import all models so Alembic can see them ──────────────────────────────────
 # Do NOT remove these imports even though they look unused.
+from app.db.base_class import Base        # noqa: F401
 from app.models.user import User          # noqa: F401, E402
 from app.models.patient import Patient    # noqa: F401, E402
 from app.models.report import Report      # noqa: F401, E402

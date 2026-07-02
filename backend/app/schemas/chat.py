@@ -14,7 +14,6 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class ChatSessionCreate(BaseModel):
     """Body to create a new chat session for a patient."""
-    patient_id: int
     title: str = Field(default="New Conversation", max_length=255)
 
 

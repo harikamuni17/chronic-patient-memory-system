@@ -1,22 +1,38 @@
 /** api/chat.js — AI Chat API calls */
-import api from './axiosInstance';
+import api, { handleApiError } from './axiosInstance';
 
 export const createSessionApi = async (patientId, title = 'New Conversation') => {
-  const { data } = await api.post(`/api/v1/patients/${patientId}/sessions/`, { patient_id: patientId, title });
-  return data;
+  try {
+    const { data } = await api.post(`/api/v1/patients/${patientId}/sessions/`, { title });
+    return data;
+  } catch (error) {
+    handleApiError(error, 'Unable to create chat session');
+  }
 };
 
 export const getSessionsApi = async (patientId) => {
-  const { data } = await api.get(`/api/v1/patients/${patientId}/sessions/`);
-  return data;
+  try {
+    const { data } = await api.get(`/api/v1/patients/${patientId}/sessions/`);
+    return data;
+  } catch (error) {
+    handleApiError(error, 'Unable to load chat sessions');
+  }
 };
 
 export const getMessagesApi = async (sessionId) => {
-  const { data } = await api.get(`/api/v1/sessions/${sessionId}/messages/`);
-  return data;
+  try {
+    const { data } = await api.get(`/api/v1/sessions/${sessionId}/messages/`);
+    return data;
+  } catch (error) {
+    handleApiError(error, 'Unable to load chat messages');
+  }
 };
 
 export const askQuestionApi = async (sessionId, question) => {
-  const { data } = await api.post(`/api/v1/sessions/${sessionId}/ask`, { question });
-  return data; // { question_message, answer_message, session_id }
+  try {
+    const { data } = await api.post(`/api/v1/sessions/${sessionId}/ask`, { question });
+    return data; // { question_message, answer_message, session_id }
+  } catch (error) {
+    handleApiError(error, 'Unable to ask question');
+  }
 };

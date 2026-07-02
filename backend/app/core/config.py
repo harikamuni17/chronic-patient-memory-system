@@ -41,6 +41,17 @@ class Settings(BaseSettings):
     # ── CORS ───────────────────────────────────────────────────────────────────
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def parse_debug(cls, value):
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"release", "prod", "production"}:
+                return False
+            if normalized in {"dev", "development"}:
+                return True
+        return value
+
     @property
     def allowed_origins_list(self) -> list[str]:
         """Split the comma-separated ALLOWED_ORIGINS string into a list."""

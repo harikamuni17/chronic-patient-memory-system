@@ -1,114 +1,71 @@
 """
 app/rag/rag_pipeline.py
 ───────────────────────
-Orchestrates the Retrieval-Augmented Generation (RAG) pipeline using Cognee.
-Cognee implements a hybrid Graph + Vector memory platform for AI agents.
+Orchestrates the Retrieval-Augmented Generation (RAG) pipeline:
 
-This module dynamically maps application settings (like settings.GEMINI_API_KEY)
-to the environment variables Cognee requires, ensuring seamless config injection.
+  PDF text → chunk → Sentence Transformers embed → ChromaDB (per patient)
+  Question → embed → ChromaDB retrieve → Gemini 1.5 Flash (context-confined)
 """
 
-import os
-import asyncio
 import logging
-from app.core.config import settings
+
+from app.rag.embeddings import embed_query, embed_texts
 from app.rag.gemini_client import generate_answer
+from app.rag.vector_store import add_documents, query_documents
 
 logger = logging.getLogger(__name__)
 
-# ── Dynamic Environment Configuration for Cognee ──────────────────────────────
-# We inject these values programmatically from the application settings to
-# save the user from duplicating configurations in their .env file.
-os.environ["LLM_PROVIDER"] = "gemini"
-os.environ["LLM_MODEL"] = f"gemini/{settings.GEMINI_MODEL}"
-os.environ["LLM_API_KEY"] = settings.GEMINI_API_KEY
+FALLBACK_ANSWER = "I couldn't find that information in the patient's medical history."
 
-# Set default embedding matching the Gemini API suite
-os.environ["EMBEDDING_PROVIDER"] = "gemini"
-os.environ["EMBEDDING_MODEL"] = "models/text-embedding-004"
-
-# Set persistent database path for Cognee's vector store (LanceDB)
-os.environ["COFFEE_DB_PATH"] = os.path.join(settings.CHROMA_DB_PATH, "cognee")
-
-try:
-    import cognee
-except ImportError:
-    logger.warning("Cognee package not installed yet. Run pip install -r requirements.txt")
+# Cosine distance above this threshold is treated as irrelevant context.
+MAX_COSINE_DISTANCE = 0.85
 
 
-async def index_report_async(patient_id: int, extracted_text: str) -> bool:
-    """
-    Asynchronously index text into Cognee memory under a patient-scoped dataset.
-    Cognee chunks, embeds, and extracts entity relationships automatically.
-    """
-    try:
-        # Cognee partitions memory spaces into datasets, keeping records separate
-        dataset_name = f"patient_{patient_id}"
-        await cognee.remember(
-            extracted_text,
-            dataset_name=dataset_name
-        )
-        logger.info("Cognee: Indexed report text under dataset '%s'", dataset_name)
-        return True
-    except Exception as e:
-        logger.error("Cognee indexing failed for patient %d: %s", patient_id, e)
-        return False
+def chunk_text(text: str, chunk_size: int = 800, overlap: int = 100) -> list[str]:
+    """Split extracted PDF text into overlapping chunks for embedding."""
+    text = text.strip()
+    if not text:
+        return []
+
+    chunks: list[str] = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        if end >= len(text):
+            break
+        start = max(start + 1, end - overlap)
+    return chunks
 
 
 def index_report(
     patient_id: int,
     report_id: int,
     extracted_text: str,
-    chunk_size: int = 800,  # Ignored (Cognee uses its own chunker)
+    chunk_size: int = 800,
     overlap: int = 100,
 ) -> int:
     """
-    Synchronous entry point called by endpoints/services.
-    Runs the asynchronous indexing task in the system loop.
-    """
-    success = asyncio.run(index_report_async(patient_id, extracted_text))
-    # Return 1 if success, 0 if failure to match signature expects chunk count
-    return 1 if success else 0
+    Chunk, embed, and store report text in the patient's ChromaDB collection.
 
-
-async def answer_question_async(
-    patient_id: int,
-    patient_name: str,
-    question: str,
-    n_results: int = 5,
-) -> tuple[str, list[str]]:
-    """
-    Asynchronously query Cognee's memory space and feed the graph context into Gemini.
+    Returns the number of chunks indexed (0 on failure or empty text).
     """
     try:
-        dataset_name = f"patient_{patient_id}"
-        # Retrieve context from the patient's dataset
-        results = await cognee.recall(
-            query_text=question,
-            datasets=[dataset_name]
+        chunks = chunk_text(extracted_text, chunk_size=chunk_size, overlap=overlap)
+        if not chunks:
+            logger.warning("No chunks produced for report %d (patient %d)", report_id, patient_id)
+            return 0
+
+        embeddings = embed_texts(chunks)
+        return add_documents(patient_id, report_id, chunks, embeddings)
+    except Exception as exc:
+        logger.error(
+            "Indexing failed for report %d (patient %d): %s",
+            report_id,
+            patient_id,
+            exc,
         )
-        
-        # Cognee returns structured matches; we extract text elements
-        context_chunks = [res.text for res in results if hasattr(res, 'text')]
-        if not context_chunks:
-            # Try to grab string values directly if structure differs
-            context_chunks = [str(res) for res in results]
-
-        if not context_chunks:
-            logger.info("Cognee returned empty context for patient %d", patient_id)
-            return "I couldn't find that information in the patient's medical history.", []
-
-        # Ground the Gemini assistant using the retrieved context
-        answer = generate_answer(
-            patient_name=patient_name,
-            context_chunks=context_chunks,
-            question=question
-        )
-        return answer, context_chunks
-
-    except Exception as e:
-        logger.error("Cognee query failed for patient %d: %s", patient_id, e)
-        return "I couldn't find that information in the patient's medical history.", []
+        return 0
 
 
 def answer_question(
@@ -118,7 +75,34 @@ def answer_question(
     n_results: int = 5,
 ) -> tuple[str, list[str]]:
     """
-    Synchronous entry point called by endpoints/services.
-    Runs the asynchronous retrieval task in the system loop.
+    Retrieve relevant chunks from ChromaDB and generate a grounded Gemini answer.
+
+    Returns (answer_text, source_chunks).
     """
-    return asyncio.run(answer_question_async(patient_id, patient_name, question))
+    try:
+        query_embedding = embed_query(question)
+        documents, distances = query_documents(
+            patient_id=patient_id,
+            query_embedding=query_embedding,
+            n_results=n_results,
+        )
+
+        context_chunks = [
+            doc for doc, dist in zip(documents, distances)
+            if doc and dist <= MAX_COSINE_DISTANCE
+        ]
+
+        if not context_chunks:
+            logger.info("No relevant context for patient %d query", patient_id)
+            return FALLBACK_ANSWER, []
+
+        answer = generate_answer(
+            patient_name=patient_name,
+            context_chunks=context_chunks,
+            question=question,
+        )
+        return answer, context_chunks
+
+    except Exception as exc:
+        logger.error("RAG query failed for patient %d: %s", patient_id, exc)
+        return FALLBACK_ANSWER, []

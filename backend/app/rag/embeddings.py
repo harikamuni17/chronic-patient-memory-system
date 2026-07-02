@@ -1,8 +1,8 @@
 """
 app/rag/embeddings.py
 ─────────────────────
-Lazy-loading wrapper for Sentence Transformers.
-Prevents import errors if sentence-transformers is uninstalled in Cognee mode.
+Lazy-loading wrapper for Sentence Transformers (all-MiniLM-L6-v2).
+The model is loaded once per process and reused for all embed calls.
 """
 
 import logging
@@ -10,38 +10,33 @@ import logging
 logger = logging.getLogger(__name__)
 
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+EMBEDDING_DIM = 384
+
+_model = None
 
 
 def get_embedding_model():
-    """Lazily load the SentenceTransformer model only when invoked."""
-    try:
+    """Lazily load and cache the SentenceTransformer model."""
+    global _model
+    if _model is None:
         from sentence_transformers import SentenceTransformer
-        return SentenceTransformer(EMBEDDING_MODEL_NAME)
-    except ImportError:
-        logger.warning(
-            "sentence-transformers not installed. "
-            "Using Cognee under the hood? If so, this module is bypassed."
-        )
-        return None
+
+        logger.info("Loading embedding model: %s", EMBEDDING_MODEL_NAME)
+        _model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+    return _model
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
-    """Generate dummy or real embeddings depending on package presence."""
+    """Generate embedding vectors for a batch of text chunks."""
+    if not texts:
+        return []
+
     model = get_embedding_model()
-    if model is None:
-        # Fallback to zero-vectors for compatibility checks
-        return [[0.0] * 384 for _ in texts]
-    
     embeddings = model.encode(texts, show_progress_bar=False, convert_to_numpy=True)
     return embeddings.tolist()
 
 
 def embed_query(query: str) -> list[float]:
-    """Generate a single embedding query vector."""
-    model = get_embedding_model()
-    if model is None:
-        # Fallback to zero-vector
-        return [0.0] * 384
-        
-    vector = model.encode([query], convert_to_numpy=True)
-    return vector[0].tolist()
+    """Generate a single embedding vector for a search query."""
+    vectors = embed_texts([query])
+    return vectors[0]

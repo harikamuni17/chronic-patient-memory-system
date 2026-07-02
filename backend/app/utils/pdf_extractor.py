@@ -148,7 +148,7 @@ def extract_text_from_pdf(file_path: str | Path) -> str:
 # ── Sentence-aware chunking ───────────────────────────────────────────────────
 
 # Sentence-ending punctuation followed by whitespace and a capital letter
-_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z\["])")
+_SENTENCE_END = re.compile(r'(?<=[.!?])\s+(?=[A-Z\["])')
 
 
 def _split_into_sentences(text: str) -> list[str]:

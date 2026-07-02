@@ -15,6 +15,16 @@ const axiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+export const handleApiError = (error, fallbackMessage = 'Request failed') => {
+  const message =
+    error.response?.data?.detail ||
+    error.response?.data?.message ||
+    error.message ||
+    fallbackMessage;
+
+  throw new Error(Array.isArray(message) ? message.map((item) => item.msg || item).join(', ') : message);
+};
+
 /* ── Request interceptor: inject JWT ── */
 axiosInstance.interceptors.request.use(
   (config) => {

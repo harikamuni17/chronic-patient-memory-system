@@ -1,16 +1,17 @@
 # ── Web Framework ──────────────────────────────────────────────────────────────
 fastapi==0.111.0
-uvicorn[standard]==0.29.0
+uvicorn[standard]==0.22.0
 
 # ── Database ───────────────────────────────────────────────────────────────────
-sqlalchemy==2.0.30
-alembic==1.13.1
+sqlalchemy==2.0.36
+alembic==1.13.3
 # SQLite is built-in; swap the driver below for PostgreSQL later:
 # psycopg2-binary==2.9.9
 
 # ── Authentication & Security ──────────────────────────────────────────────────
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.0.1                   # compatible with passlib 1.7.4 version detection
 python-multipart==0.0.9         # required for form / file uploads
 
 # ── PDF Processing ─────────────────────────────────────────────────────────────
@@ -19,15 +20,27 @@ pdfminer.six==20231228          # fallback for complex PDFs
 
 # ── AI / RAG Stack ─────────────────────────────────────────────────────────────
 google-generativeai==0.7.2      # Gemini API
-cognee==0.1.18                  # Cognee graph/vector memory system
+chromadb==0.5.4                 # Vector database
+protobuf==4.25.9                # keep Gemini protobuf constraint compatible with ChromaDB telemetry deps
+opentelemetry-api==1.27.0
+opentelemetry-sdk==1.27.0
+opentelemetry-exporter-otlp-proto-grpc==1.27.0
+opentelemetry-exporter-otlp-proto-common==1.27.0
+opentelemetry-proto==1.27.0
+opentelemetry-instrumentation-fastapi==0.48b0
+opentelemetry-instrumentation-asgi==0.48b0
+opentelemetry-instrumentation==0.48b0
+opentelemetry-semantic-conventions==0.48b0
+opentelemetry-util-http==0.48b0
+sentence-transformers==3.0.1    # Text embedding model
 
 # ── Utility ────────────────────────────────────────────────────────────────────
 python-dotenv==1.0.1            # load .env files
-pydantic[email]==2.7.1          # data validation (Pydantic v2)
+pydantic[email]==2.8.2          # data validation (Pydantic v2)
 pydantic-settings==2.2.1        # settings from env vars
 aiofiles==23.2.1                # async file I/O
 httpx==0.27.0                   # async HTTP (used in tests)
-tenacity==8.3.0                 # retry logic for external APIs
+tenacity==9.0.0                 # retry logic for external APIs
 
 # ── Testing ────────────────────────────────────────────────────────────────────
 pytest==8.2.1
